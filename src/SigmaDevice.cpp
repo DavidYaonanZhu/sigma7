@@ -111,13 +111,14 @@ int SigmaDevice::ReadMeasurementsFromDevice() {
     double orient_m[3][3];
     //Reading the data from the device
     dhdGetPositionAndOrientationFrame(&p[0], &p[1], &p[2], orient_m, (char)id);
+    //std::cout << p[0], p[1], p[2];
 
     // convert to pose message
     KDL::Rotation rot;
     for (int r = 0; r < 3; ++r) {
         for (int c = 0; c < 3; ++c) { rot(r, c) = orient_m[r][c]; }
     }
-    tf::poseKDLToMsg(KDL::Frame(rot, KDL::Vector(p[0],p[1],p[2])),
+    tf::poseKDLToMsg(KDL::Frame(rot, KDL::Vector(10*p[0],10*p[1],10*p[2])),
                      pose_msg.pose);
     // stamp the msg
     pose_msg.header.stamp = ros::Time::now();

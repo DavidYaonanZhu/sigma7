@@ -17,7 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 include_directories(
-        ${catkin_INCLUDE_DIRS}
+  include
+  ${catkin_INCLUDE_DIRS}
 )
 
 catkin_package()
@@ -31,8 +32,8 @@ add_executable(master
 
 target_link_libraries(master
         ${catkin_LIBRARIES}
-        dhd
-        drd
+        ${PROJECT_SOURCE_DIR}/lib/libdhd.so.3.7.2
+        ${PROJECT_SOURCE_DIR}/lib/libdrd.so.3
         usb-1.0 -lrt
         pthread
         )
