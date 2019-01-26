@@ -95,6 +95,7 @@ void CheckAvailableDevices(int &devs) {
         for (int i = 0; i < 2; i++) {
             if (drdOpenID((char) i) > -1)
                 devs = i+1;
+            drdClose((char) i);
         }
         ros::Rate r(0.5);
         r.sleep();
