@@ -219,6 +219,7 @@ private:
     geometry_msgs::PoseStamped pose_msg;
     geometry_msgs::TwistStamped twist_msg;
     geometry_msgs::WrenchStamped wrench;
+    geometry_msgs::WrenchStamped wrench_filtered_msg;
     bool new_wrench_msg;
     std_msgs::Float32 gripper_angle;
 
@@ -235,6 +236,7 @@ private:
     ros::Publisher pub_twist;
     ros::Publisher pub_gripper;
     ros::Publisher pub_buttons;
+    ros::Publisher pub_force_filtered;
     ros::Subscriber sub_wrench;
 };
 

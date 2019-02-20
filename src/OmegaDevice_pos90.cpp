@@ -10,10 +10,10 @@
 */
 //==============================================================================
 
-#include "SigmaDevice.hpp"
 #include <math.h>
 #include <sensor_msgs/Joy.h>
 #include <tf/transform_broadcaster.h>
+#include "SigmaDevice.hpp"
 
 //#include "filters.h"
 
@@ -35,7 +35,9 @@ SigmaDevice::SigmaDevice(ros::NodeHandle n, const std::string ns)
       n.advertise<geometry_msgs::WrenchStamped>(ns + "/force_filtered", 1, 0);
 
   std::string wrench_topic("/sigma/force_feedback");
+  std::string initial_position("without_tool");
   n.getParam("wrench_topic", wrench_topic);
+  n.getParam("initial_position", initial_position);
   sub_wrench = n.subscribe(wrench_topic, 1, &SigmaDevice::WrenchCallback, this);
 
   // params
@@ -163,8 +165,8 @@ int SigmaDevice::ReadMeasurementsFromDevice() {
   // convert to pose message
   // remapping device roll pitch yaw to ur cordinate. dev_roll->ur_pitch,
   // dev_pitch->ur_roll dev_yaw->ur_yaw
-  KDL::Rotation rot, rot_x(1, 0, 0, 0, cos(oy), -sin(oy), 0, sin(oy), cos(oy)),
-      rot_y(cos(-ox), 0, sin(-ox), 0, 1, 0, -sin(-ox), 0, cos(-ox)),
+  KDL::Rotation rot, rot_x(1, 0, 0, 0, cos(ox), -sin(ox), 0, sin(ox), cos(ox)),
+      rot_y(cos(oy), 0, sin(oy), 0, 1, 0, -sin(oy), 0, cos(oy)),
       rot_z(cos(oz), -sin(oz), 0, sin(oz), cos(oz), 0, 0, 0, 1);
   // for (int r = 0; r < 3; ++r) {
   //    for (int c = 0; c < 3; ++c) { rot(r, c) = orient_m[r][c]; }
@@ -172,17 +174,23 @@ int SigmaDevice::ReadMeasurementsFromDevice() {
   rot = rot_x * rot_y * rot_z;
 
   // remapping cordinatesystem device_x to ur_y, device_y to -ur_x
-  KDL::Rotation conv_rot_d2w(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-  KDL::Rotation conv_rot_w2ur(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-  rot = rot * conv_rot_d2w * conv_rot_w2ur;
+//  KDL::Rotation conv_rot_d2w(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+//  KDL::Rotation conv_rot_w2ur(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+  KDL::Rotation conv_rot_robotbyomega(0.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, 0.0);
+  //rot = rot * conv_rot_d2w * conv_rot_w2ur;
+  rot = rot * conv_rot_robotbyomega;
   // Initial ur position init_x, init_y, init_z z=22cm 18cm gripper + 4cm wrist
   // double init_x = 0.17199; double init_y = 0.40659; double init_z = 0.12966;
-  double init_x = 0.17446;
-  double init_y = 0.40866;
-  double init_z = 0.22214;
+  //  double init_x = 0.17446;
+  //  double init_y = 0.40866;
+  //  double init_z = 0.22214;
+
+  double init_x = -0.13382;  // pos 90
+  double init_y = 0.325975;
+  double init_z = 0.454139;
 
   tf::poseKDLToMsg(
-      KDL::Frame(rot, KDL::Vector(init_x + p[1], init_y - p[0], init_z + p[2])),
+      KDL::Frame(rot, KDL::Vector(init_x - p[0], init_y - p[1], init_z + p[2])),
       pose_msg.pose);
   //    tf::poseKDLToMsg(KDL::Frame(rot, KDL::Vector(10*p[0],10*p[1],10*p[2])),
   // pose_msg.pose);
@@ -193,7 +201,7 @@ int SigmaDevice::ReadMeasurementsFromDevice() {
   static tf::TransformBroadcaster br;
   tf::Transform transform;
   tf::PoseKDLToTF(
-      KDL::Frame(rot, KDL::Vector(init_x + p[1], init_y - p[0], init_z + p[2])),
+      KDL::Frame(rot, KDL::Vector(init_x - p[0], init_y - p[1], init_z + p[2])),
       transform);
   br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),
                                         "base_link", "omega_7"));
@@ -257,20 +265,20 @@ void SigmaDevice::HandleWrench() {
 
     // Create a bias t=0
     if (!force_bias_) {
-      Force_bias_[0] = wrench.wrench.force.y;
-      Force_bias_[1] = -wrench.wrench.force.x;
+      Force_bias_[0] = wrench.wrench.force.x;
+      Force_bias_[1] = wrench.wrench.force.y;
       Force_bias_[2] = wrench.wrench.force.z;
-      Force_bias_[3] = wrench.wrench.torque.y;
-      Force_bias_[4] = -wrench.wrench.torque.x;
+      Force_bias_[3] = wrench.wrench.torque.x;
+      Force_bias_[4] = wrench.wrench.torque.y;
       Force_bias_[5] = wrench.wrench.torque.z;
       force_bias_ = true;
       ROS_INFO_STREAM(Force_bias_.transpose());
     } else {
-      Force_data[0] = force_scale_ * (wrench.wrench.force.y - Force_bias_[0]);
-      Force_data[1] = force_scale_ * (-wrench.wrench.force.x - Force_bias_[1]);
+      Force_data[0] = force_scale_ * (wrench.wrench.force.x - Force_bias_[0]);
+      Force_data[1] = force_scale_ * (wrench.wrench.force.y - Force_bias_[1]);
       Force_data[2] = force_scale_ * (wrench.wrench.force.z - Force_bias_[2]);
-      Force_data[3] = force_scale_ * (wrench.wrench.torque.y - Force_bias_[3]);
-      Force_data[4] = force_scale_ * (-wrench.wrench.torque.x - Force_bias_[4]);
+      Force_data[3] = force_scale_ * (wrench.wrench.torque.x - Force_bias_[3]);
+      Force_data[4] = force_scale_ * (wrench.wrench.torque.y - Force_bias_[4]);
       Force_data[5] = force_scale_ * (wrench.wrench.torque.z - Force_bias_[5]);
 
       if (Force_data[3] <= 0.05 && Force_data[3] >= -0.05)
@@ -363,8 +371,8 @@ void SigmaDevice::HandleWrench() {
     ////                                                -wrench.wrench.torque.x,
     ////                                                wrench.wrench.torque.z,
     ////                                                0.0, (char)id) <
-    ///DHD_NO_ERROR){ /            printf("error: cannot set force (%s)\n",
-    ///dhdErrorGetLastStr()); /        }
+    /// DHD_NO_ERROR){ /            printf("error: cannot set force (%s)\n",
+    /// dhdErrorGetLastStr()); /        }
 
     //        dhdGetOrientationRad(&locked_orient[0],
     //        &locked_orient[1],&locked_orient[2]);

@@ -30,6 +30,12 @@ add_executable(master
         src/SigmaDevice.hpp
         )
 
+add_executable(master2
+        src/main_master_pos90.cpp
+        src/OmegaDevice_pos90.cpp
+        src/SigmaDevice.hpp
+        )
+
 target_link_libraries(master
         ${catkin_LIBRARIES}
         ${PROJECT_SOURCE_DIR}/lib/libdhd.so.3.7.2
@@ -37,6 +43,19 @@ target_link_libraries(master
         usb-1.0 -lrt
         pthread
         )
+
+target_link_libraries(master2
+        ${catkin_LIBRARIES}
+        ${PROJECT_SOURCE_DIR}/lib/libdhd.so.3.7.2
+        ${PROJECT_SOURCE_DIR}/lib/libdrd.so.3
+        usb-1.0 -lrt
+        pthread
+        )
+
+
+
+
+
 
 
 
